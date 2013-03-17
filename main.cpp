@@ -1,27 +1,19 @@
 #include <iostream>
+#include <iomanip>
 #include <string>
 #include <string.h>
 #include <dar/libdar.hpp>
 #include <libgen.h>
 
+
+#include <stdio.h>
+#include <sys/stat.h>
+
+
+#include <ctime>
+
 using namespace std;
 using namespace libdar;
-
-// our own callback functions.
-// for the illustration of what theses 'context' arguments
-// can be used for we will imagine the situation where
-// multiple windows or multiple threads may each one use
-// libdar, but all share the same callback functions.
-
-typedef class t_window_type t_win;
-
-// this is an arbitrary type that here we will say
-// points to a graphical window object wrapped in a C++
-// class.
-// Note that the method show() wait_for_click() and so on
-// attributed to the t_win class are absolutely
-// imaginary. Any link to an existing class is a pure
-// coincidence...
 
 void warning_callback(const std::string & //x
 			, void * //context
@@ -49,9 +41,6 @@ int fcukingfunc()
 {
 	return 4;
 }
-// So now each window can have its user_interaction object based on the same
-// user_interaction_callback object pointing to the same functions.
-// user_interaction_callback objects can be shared among different window objects
 
 
 int testArchive(std::string & archiveDirPath, std::string & archiveName)
@@ -102,11 +91,76 @@ int testArchive(std::string & archiveDirPath, std::string & archiveName)
 	return 0;
 }
 
+void truncateFile(const std::string &filePath, const long long newSize)
+{
+	off_t newSizeOffset;
+        newSizeOffset = (off_t)newSize;
+
+        truncate(filePath.c_str(), newSize);
+}
+
+intmax_t fileSize(const std::string &filePath)
+{
+	struct stat file_stat;
+
+	stat(filePath.c_str(), &file_stat);
+	return (intmax_t)file_stat.st_size;
+}
+
+
 int main(int argc, char* argv[])
 {
-	string archiveDirPath(argv[1]);
-	string archiveName(argv[2]);
+	std::string archiveDirPath(argv[1]);
+	std::string archiveName(argv[2]);
+	std::string archiveExt(argv[3]);
+	std::string archivePath(argv[1]);
+	archivePath += "/" + archiveName + archiveExt;
 
-	return testArchive(archiveDirPath, archiveName);
-	//return 0;
+
+	cout << "archiveDirPath : " << archiveDirPath << endl;
+	cout << "archiveName : " << archiveName << endl;
+	cout << "archivePath : " << archivePath << endl;
+
+	intmax_t archiveBeginSize = fileSize(archivePath);
+	int archiveOK = -1;
+	cout << "taille archive : " << archiveBeginSize << " octets\n";
+
+	//time_t currentTime = time(0);
+	//time_t beginTime = currentTime;
+
+	const int finishingBytes = 1449710000;
+
+	int currentByte = archiveBeginSize;
+
+	//int bytesToProcess = currentByte - finishingBytes;
+	int i = 0;
+	for(currentByte = archiveBeginSize; currentByte > finishingBytes; --currentByte)
+	{
+
+		archiveOK = testArchive(archiveDirPath, archiveName);
+
+
+		if(archiveOK == 0)
+		{
+			if(i != 0)
+				++currentByte;
+			cout << "Archive truncated to the good size ! (" << currentByte << ")" << endl;
+			return 0;
+		}
+		else
+		{
+			truncateFile(archivePath, currentByte);
+			/*if(currentByte % 500 == 0)
+			{
+				currentTime = time(0);
+				time_t elapsedTime = difftime(currentTime, beginTime);
+				bytesToProcess = currentByte - finishingBytes;
+				time_t timeToFinish = (time_t)((int)elapsedTime * bytesToProcess / i);
+				tm *dt = gmtime(&timeToFinish);
+				printf("Estimation restante : %02d:%02d:%02d\n", dt->tm_hour, dt->tm_min, dt->tm_sec);
+			}*/
+		}
+		++i;
+	}
+	return -1; // sortie sans que l'archive soit OK
 }
